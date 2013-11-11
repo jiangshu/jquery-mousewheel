@@ -42,7 +42,8 @@
       var diff = last ? event.timeStamp - last : 0;
       var top = $(this).scrollTop();
       var absDelta = Math.abs(delta);
-      var distance = (Math.max(1, Math.log(absDelta * lowestDelta))) * absDelta;
+      var distance = (Math.max(1, Math.log(Math.pow(lowestDelta, absDelta)))) * absDelta;
+      //var distance = (Math.max(1, Math.log(absDelta * lowestDelta))) * absDelta;
       distance = delta < 0 ? -distance : distance;
       console.log('Emulated:', delta, distance, lowestDelta, rawDelta, diff);
       $(this).scrollTop( top + distance*-1 );
