@@ -1,7 +1,7 @@
 /*! Copyright (c) 2013 Brandon Aaron (http://brandon.aaron.sh)
  * Licensed under the MIT License (LICENSE.txt).
  *
- * Version: 3.1.4
+ * Version: 3.1.5-pre
  *
  * Requires: 1.2.2+
  */
@@ -21,7 +21,7 @@
 
     var toFix = ['wheel', 'mousewheel', 'DOMMouseScroll', 'MozMousePixelScroll'];
     var toBind = 'onwheel' in document || document.documentMode >= 9 ? ['wheel'] : ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'];
-    var lowestDelta, lowestDeltaXY;
+    var nullTimeout, lowestDelta = null, lowestDeltaXY = null;
 
     if ( $.event.fixHooks ) {
         for ( var i = toFix.length; i; ) {
@@ -61,8 +61,9 @@
         }
     });
 
-
     function handler(event) {
+        if (nullTimeout) { clearTimeout(nullTimeout); }
+
         var orgEvent   = event || window.event,
             args       = [].slice.call(arguments, 1),
             delta      = 0,
@@ -70,6 +71,7 @@
             deltaY     = 0,
             absDelta   = 0,
             absDeltaXY = 0,
+            rawDelta   = 0,
             fn;
         event = $.event.fix(orgEvent);
         event.type = 'mousewheel';
@@ -101,22 +103,29 @@
         if ( orgEvent.wheelDeltaY !== undefined ) { deltaY = orgEvent.wheelDeltaY; }
         if ( orgEvent.wheelDeltaX !== undefined ) { deltaX = orgEvent.wheelDeltaX * -1; }
 
+        rawDelta = delta;
+
         // Look for lowest delta to normalize the delta values
-        absDelta = Math.abs(delta);
-        if ( !lowestDelta || absDelta < lowestDelta ) { lowestDelta = absDelta; }
-        absDeltaXY = Math.max(Math.abs(deltaY), Math.abs(deltaX));
-        if ( !lowestDeltaXY || absDeltaXY < lowestDeltaXY ) { lowestDeltaXY = absDeltaXY; }
+        if ( lowestDelta === null ) { lowestDelta = Math.abs(delta); }
+        if ( lowestDeltaXY === null ) { lowestDeltaXY = Math.max(Math.abs(deltaY), Math.abs(deltaX)); }
 
         // Get a whole value for the deltas
-        fn     = delta > 0 ? 'floor' : 'ceil';
+        fn     = delta >= 1 ? 'floor' : 'ceil';
         delta  = Math[fn](delta  / lowestDelta);
         deltaX = Math[fn](deltaX / lowestDeltaXY);
         deltaY = Math[fn](deltaY / lowestDeltaXY);
 
         // Add event and delta to the front of the arguments
-        args.unshift(event, delta, deltaX, deltaY);
+        args.unshift(event, delta, deltaX, deltaY, lowestDelta, rawDelta);
+
+        nullTimeout = setTimeout(nullLowestDeltas, 500);
 
         return ($.event.dispatch || $.event.handle).apply(this, args);
+    }
+
+    function nullLowestDeltas() {
+        lowestDelta = null;
+        lowestDeltaXY = null;
     }
 
 }));
