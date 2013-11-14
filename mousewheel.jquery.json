@@ -7,7 +7,7 @@
         "mouse",
         "event"
     ],
-    "version": "3.1.5-pre",
+    "version": "3.2.0-pre",
     "author": {
         "name": "Brandon Aaron",
         "url": "http://brandonaaron.net"
@@ -22,6 +22,6 @@
     "homepage": "https://github.com/brandonaaron/jquery-mousewheel",
     "download": "https://github.com/brandonaaron/jquery-mousewheel/tags",
     "dependencies": {
-        "jquery": ">=1.2.2"
+        "jquery": ">=1.7"
     }
 }
