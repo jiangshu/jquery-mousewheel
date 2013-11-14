@@ -31,7 +31,7 @@
         }
     }
 
-    $.event.special.mousewheel = {
+    var special = $.event.special.mousewheel = {
         setup: function() {
             if ( this.addEventListener ) {
                 for ( var i = toBind.length; i; ) {
@@ -47,7 +47,7 @@
                  'behavior' in (handleObj.data.mousewheel) &&
                  'delay' in (handleObj.data.mousewheel)
                ) {
-                $.event.special.mousewheel._delayHandler(handleObj);
+                special._delayHandler(handleObj);
             }
         },
 
@@ -70,6 +70,51 @@
             handler.call(this, event);
 
             return false;
+        },
+
+        _fix: function(orgEvent) {
+            var deltaX   = 0,
+                deltaY   = 0,
+                absDelta = 0,
+                event    = $.event.fix(orgEvent);
+
+            // Old school scrollwheel delta
+            if ( 'detail'      in orgEvent ) { deltaY = orgEvent.detail * -1;      }
+            if ( 'wheelDelta'  in orgEvent ) { deltaY = orgEvent.wheelDelta;       }
+            if ( 'wheelDeltaY' in orgEvent ) { deltaY = orgEvent.wheelDeltaY;      }
+            if ( 'wheelDeltaX' in orgEvent ) { deltaX = orgEvent.wheelDeltaX * -1; }
+
+            // Firefox < 17 horizontal scrolling related to DOMMouseScroll event
+            if ( 'axis' in orgEvent && orgEvent.axis === orgEvent.HORIZONTAL_AXIS ) {
+                deltaX = deltaY * -1;
+                deltaY = 0;
+            }
+
+            // New school wheel delta (wheel event)
+            if ( 'deltaY' in orgEvent ) { deltaY = orgEvent.deltaY * -1; }
+            if ( 'deltaX' in orgEvent ) { deltaX = orgEvent.deltaX; }
+
+            // No change actually happened, no reason to go any further
+            if ( deltaY === 0 && deltaX === 0 ) { return; }
+
+            // Store lowest absolute delta to normalize the delta values
+            absDelta = Math.max( Math.abs(deltaY), Math.abs(deltaX) );
+            if ( !lowestDelta || absDelta < lowestDelta ) {
+              lowestDelta = absDelta;
+            }
+
+            // Get a whole, normalized value for the deltas
+            deltaX = Math[ deltaX >= 1 ? 'floor' : 'ceil' ](deltaX / lowestDelta);
+            deltaY = Math[ deltaY >= 1 ? 'floor' : 'ceil' ](deltaY / lowestDelta);
+
+            // Add information to the event object
+            event.deltaX = deltaX;
+            event.deltaY = deltaY;
+            event.deltaFactor = lowestDelta;
+
+            event.type = 'mousewheel';
+
+            return event;
         },
 
         _delayHandler: function(handlerObj) {
@@ -96,47 +141,10 @@
 
     function handler(event) {
         // might be trigged event, so check for the originalEvent first
-        var orgEvent   = event ? event.originalEvent || event : window.event,
-            args       = slice.call(arguments, 1),
-            deltaX     = 0,
-            deltaY     = 0,
-            absDelta   = 0;
-        event = $.event.fix(orgEvent);
-        event.type = 'mousewheel';
+        var orgEvent = event ? event.originalEvent || event : window.event,
+            args     = slice.call(arguments, 1);
 
-        // Old school scrollwheel delta
-        if ( 'detail'      in orgEvent ) { deltaY = orgEvent.detail * -1;      }
-        if ( 'wheelDelta'  in orgEvent ) { deltaY = orgEvent.wheelDelta;       }
-        if ( 'wheelDeltaY' in orgEvent ) { deltaY = orgEvent.wheelDeltaY;      }
-        if ( 'wheelDeltaX' in orgEvent ) { deltaX = orgEvent.wheelDeltaX * -1; }
-
-        // Firefox < 17 horizontal scrolling related to DOMMouseScroll event
-        if ( 'axis' in orgEvent && orgEvent.axis === orgEvent.HORIZONTAL_AXIS ) {
-            deltaX = deltaY * -1;
-            deltaY = 0;
-        }
-
-        // New school wheel delta (wheel event)
-        if ( 'deltaY' in orgEvent ) { deltaY = orgEvent.deltaY * -1; }
-        if ( 'deltaX' in orgEvent ) { deltaX = orgEvent.deltaX; }
-
-        // No change actually happened, no reason to go any further
-        if ( deltaY === 0 && deltaX === 0 ) { return; }
-
-        // Store lowest absolute delta to normalize the delta values
-        absDelta = Math.max( Math.abs(deltaY), Math.abs(deltaX) );
-        if ( !lowestDelta || absDelta < lowestDelta ) {
-          lowestDelta = absDelta;
-        }
-
-        // Get a whole, normalized value for the deltas
-        deltaX = Math[ deltaX >= 1 ? 'floor' : 'ceil' ](deltaX / lowestDelta);
-        deltaY = Math[ deltaY >= 1 ? 'floor' : 'ceil' ](deltaY / lowestDelta);
-
-        // Add information to the event object
-        event.deltaX = deltaX;
-        event.deltaY = deltaY;
-        event.deltaFactor = lowestDelta;
+        event = special._fix(orgEvent);
 
         // Add event to the front of the arguments
         args.unshift(event);
@@ -148,7 +156,7 @@
         if (nullLowestDeltaTimeout) { clearTimeout(nullLowestDeltaTimeout); }
         nullLowestDeltaTimeout = setTimeout(nullLowestDelta, 200);
 
-        return ($.event.dispatch || $.event.handle).apply(this, args);
+        return $.event.dispatch.apply(this, args);
     }
 
     function nullLowestDelta() {
